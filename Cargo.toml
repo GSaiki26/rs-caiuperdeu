@@ -1,0 +1,33 @@
+[package]
+name = "rs-caiuperdeu"
+version = "1.0.0"
+edition = "2021"
+authors = ["Gustavo Saiki <GSaiki26@gmail.com>"]
+
+[[bin]]
+name = "app"
+path = "./src/main.rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+chrono = { version = "0.4.35", default-features = false, features = [
+    "clock",
+    "std",
+] }
+serenity = { version = "0.12.1", default-features = false, features = [
+    "cache",
+    "http",
+    "default_no_backend",
+    "rustls_backend",
+    "temp_cache",
+] }
+tokio = { version = "1.36.0", default-features = false, features = [
+    "macros",
+    "rt-multi-thread",
+] }
+tracing = { version = "0.1.40", default-features = false }
+tracing-subscriber = { version = "0.3.18", default-features = false, features = [
+    "ansi",
+    "fmt",
+] }
