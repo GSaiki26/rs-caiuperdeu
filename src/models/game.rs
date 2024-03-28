@@ -29,13 +29,18 @@ pub struct Game {
 // Implementations
 impl Game {
     /// A method to instance a new Game.
-    pub fn new(ctx: Arc<Context>, original_message: Message) -> Self {
+    pub fn new(
+        ctx: Arc<Context>,
+        guild_id: GuildId,
+        game_owner_id: UserId,
+        channel_id: ChannelId,
+    ) -> Self {
         Self {
+            game_owner_id,
+            channel_id,
+            guild_id,
             cache: ctx.cache.clone(),
             http: ctx.http.clone(),
-            game_owner_id: original_message.author.id,
-            channel_id: original_message.channel_id,
-            guild_id: original_message.guild_id.unwrap(),
             v_channel: None,
             game_message: None,
             original_players: Vec::new(),
