@@ -17,7 +17,7 @@ docker run --ti --env-file ./app.env --name caiuperdeu gsaiki26/rs-caiuperdeu;
 
 Or, if you want to build by yourself, the `Dockerfile` is available in the root path.
 
-# Environment variables
+## Environment variables
 An example environment file can be found by `app.env.example`.
 
 * `DISCORD_TOKEN`: The bot's token that can be found in: [Discord Developer Portal](https://discord.com/developers/applications).
