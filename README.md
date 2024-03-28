@@ -4,6 +4,11 @@
 The `Rust CaiuPerdeu` is a Rust remaster of the original bot: [CaiuPerdeu](https://github.com/GSaiki26/py-caiuperdeu).
 It's a discord bot client that checks all players in a voice chat until 1 is left. A game of resistence.
 
+## Usage
+The CaiuPerdeu is a discord's bot. It can start a game where everyone in the voice chat can't disconnect. If some player leave the voice chat, that user is out. Wins the last player in the call.
+
+To start a game, you can use the slash command: `/play` in a chat where the bot has permission.
+
 ## Deploy
 You can get the caiuperdeu's docker image using docker hub:
 ```sh

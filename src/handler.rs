@@ -2,7 +2,11 @@
 use std::sync::Arc;
 
 use serenity::{
-    all::{Context, CreateEmbed, CreateEmbedAuthor, CreateMessage, EventHandler, Http, Message},
+    all::{
+        ChannelId, Command, CommandInteraction, Context, CreateCommand, CreateEmbed,
+        CreateEmbedAuthor, CreateInteractionResponse, CreateInteractionResponseMessage,
+        CreateMessage, EventHandler, GuildId, Http, Interaction, User,
+    },
     async_trait,
 };
 use tracing::{error, info, info_span, Instrument};
@@ -15,37 +19,77 @@ pub struct Handler;
 // Implementations
 #[async_trait]
 impl EventHandler for Handler {
-    async fn ready(&self, _ctx: Context, _ready: serenity::all::Ready) {
+    async fn ready(&self, ctx: Context, _ready: serenity::all::Ready) {
         info!("Bot is ready.");
+
+        // Define the slash commands.
+        let ping_command =
+            CreateCommand::new("ping").description("A command to check if the bot is online.");
+        if let Err(e) = Command::create_global_command(&ctx.http, ping_command).await {
+            error!("Couldn\'t create the slash command: 'ping'. {}", e);
+        }
+        let play_command = CreateCommand::new("play").description("A command to start a new game.");
+        if let Err(e) = Command::create_global_command(&ctx.http, play_command).await {
+            error!("Couldn\'t create the slash command: 'play'. {}", e);
+        }
     }
 
     async fn cache_ready(&self, _ctx: Context, _guilds: Vec<serenity::all::GuildId>) {
         info!("Cache is ready.");
     }
 
-    async fn message(&self, ctx: Context, msg: Message) {
+    async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         let ctx = Arc::new(ctx);
 
-        // Check if the message is valid.
-        if msg.author.bot || msg.is_private() || !msg.content.starts_with('!') {
+        // Get the command interaction.
+        let mut command: Option<CommandInteraction> = None;
+        if let Interaction::Command(received_command) = interaction {
+            command = Some(received_command);
+        }
+        if command.is_none() {
             return;
         }
 
-        let span = info_span!("EVENT", guild = %msg.guild_id.unwrap());
-        let _guard = span.enter();
+        // Check if the interaction is valid.
+        let command = command.unwrap();
+        if command.user.bot | command.guild_id.is_none() {
+            return;
+        }
 
-        match msg.content.as_str() {
-            "!ping" => {
-                command_ping(ctx.http.clone(), msg)
+        // End the interaction, so the user knows that the bot is processing the command.
+        let message = CreateInteractionResponseMessage::new().content("Processing...");
+        let message = CreateInteractionResponse::Message(message);
+        if let Err(e) = command.create_response(&ctx.http, message).await {
+            error!("Couldn\'t create the interaction response. {}", e);
+            return;
+        }
+
+        // Match the command.
+        let span = info_span!("EVENT", guild = %command.guild_id.unwrap());
+        let _guard = span.enter();
+        match command.data.name.as_str() {
+            "play" => {
+                command_play(
+                    ctx,
+                    command.guild_id.unwrap(),
+                    command.user,
+                    command.channel_id,
+                )
+                .instrument(span.clone())
+                .await;
+            }
+            "ping" => {
+                command_ping(ctx.http.clone(), command.user, command.channel_id)
                     .instrument(span.clone())
                     .await;
             }
-            "!play" => {
-                command_play(ctx, msg).instrument(span.clone()).await;
-            }
             _ => {
                 info!("The sent command is not valid.");
-                if let Err(e) = msg.reply(&ctx.http, "Command not found.").await {
+                if let Err(e) = command
+                    .channel_id
+                    .say(&ctx.http, "Command not found.")
+                    .await
+                {
                     error!("Couldn\'t send the message: 'Command not found.'. {}", e);
                 }
             }
@@ -54,27 +98,25 @@ impl EventHandler for Handler {
 }
 
 // Functions
-async fn command_ping(http: Arc<Http>, msg: Message) {
+async fn command_ping(http: Arc<Http>, user: User, channel_id: ChannelId) {
     info!("Ping command detected.");
-    let channel = msg.channel_id;
-    let author =
-        CreateEmbedAuthor::new(&msg.author.name).icon_url(msg.author.avatar_url().unwrap());
+    let author = CreateEmbedAuthor::new(&user.name).icon_url(user.avatar_url().unwrap());
 
     // Create the ping message.
     let message = CreateEmbed::new()
         .author(author)
         .description("CaiuPerdeu is online.");
     let message = CreateMessage::new().embed(message);
-    if let Err(why) = channel.send_message(http, message).await {
+    if let Err(why) = channel_id.send_message(http, message).await {
         error!("Error sending message: {:?}", why);
     }
 }
 
-async fn command_play(ctx: Arc<Context>, msg: Message) {
+async fn command_play(ctx: Arc<Context>, guild_id: GuildId, user: User, channel_id: ChannelId) {
     info!("Play command detected.");
 
     // Create a new game.
-    let mut game = Game::new(ctx, msg);
+    let mut game = Game::new(ctx, guild_id, user.id, channel_id);
     match game.is_ctx_valid().await {
         Ok(true) => {
             info!("Game context is valid, starting game...");
